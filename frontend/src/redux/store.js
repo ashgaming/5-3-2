@@ -1,5 +1,5 @@
 import { createStore, applyMiddleware, compose } from 'redux';
-import thunk from 'redux-thunk';
+import {thunk} from 'redux-thunk';
 import rootReducer from './combineReducer';
 import { getUserSession } from './methods/user.session';
 //import { composeWithDevTools } from 'redux-devtools-extension'
