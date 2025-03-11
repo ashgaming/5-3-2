@@ -17,8 +17,8 @@ backend/.env
 
 
 node_modules
-dist
-dist-ssr
+#dist-ssr
+#dist
 *.local
 
 # Editor directories and files
