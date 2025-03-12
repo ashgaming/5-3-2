@@ -59,7 +59,7 @@ export const gameLogicReducer = (state = {
     }
 };
 
-export const ceateRoomReducer = (state = {
+export const createRoomReducer = (state = {
     roomId: undefined,
     loading: false,
     error: false,
@@ -69,10 +69,6 @@ export const ceateRoomReducer = (state = {
         case CREATE_ROOM_REQUEST:
             return { loading: true, success: false, error: false };
         case CREATE_ROOM_SUCCESS:
-            AppDispatch({
-                type: SET_ROOM_ID,
-                payload: action.payload
-            })
             return { ...state, loading: false, roomId: action.payload, success: true, error: false };
         case CREATE_ROOM_ERROR:
             return { ...state, loading: false, success: false, error: action.payload };

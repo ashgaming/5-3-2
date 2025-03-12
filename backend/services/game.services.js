@@ -361,7 +361,6 @@ const FigureOutRoundWinner = async ({ cardInPlay = [], order, game }) => {
     // Check for order type first
     const orderCards = cardsToCompare.filter(item => String(item.type) === String(order));
     if (orderCards.length > 0) {
-      console.log('orderCards')
       const _card = getHighestPriorityObject(orderCards);
       const winnerPlayer = _card.playby;
       InsertInHistory({ cardsInPlay: cardsToCompare, gameId: game._id, round: game.round, gameNumber: game.currentGameNumber, winner: winnerPlayer })

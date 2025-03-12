@@ -14,7 +14,10 @@ const Navbar = () => {
 
   return (
     <nav className="navbar flex justify-between navbar-expand-lg navbar-light bg-light m-3 bg-black/50 rounded-full p-4 text-white">
-      Game
+       <h1> 
+       <img src="logo.svg" alt="Logo" className="inline-block w-7 mr-2 rounded-full aspect-square" />
+       Game
+        </h1> 
 
 
          {
