@@ -3,21 +3,36 @@ import io from 'socket.io-client';
 import { BACKEND_URL } from './user.action';
 
 export const socket = io(`${BACKEND_URL}`, {
-    transports: ['websocket'], // Force WebSocket transport
-    withCredentials: false,
-});;
+        transports: ['websocket'], // Force WebSocket transport
+        withCredentials: false,
+    });;
 
-export const setUpSocket = () => async (dispatch) => {
+export const setUpSocket = ({userId}) => async (dispatch) => {
     
     try {
 
         dispatch({
             type: SETUP_SOCKET_REQUEST
         })
+
+        const sendMessage = (eventName, message) => {
+
+            console.log(`sending message: ${message.userId} to ${eventName} on socket ${socket.id} `)
+
+            socket.emit(eventName, message);
+        };
+
+        const receiveMessage = (eventName, callback) => {
+            socket.on(eventName, callback);
+        };
     
         // Add event listeners for connection and disconnection
         socket.on('connect', () => {
             console.log('Connected to WebSocket:', socket.id);
+            sendMessage(
+                'join', {
+                userId
+              })
         });
 
         socket.on('disconnect', (reason) => {
@@ -42,16 +57,7 @@ export const setUpSocket = () => async (dispatch) => {
             socket.disconnect(); // Disconnect the socket when unmounting
             };*/
 
-        const sendMessage = (eventName, message) => {
-
-            console.log(`sending message: ${message.userId} to ${eventName} `)
-
-            socket.emit(eventName, message);
-        };
-
-        const receiveMessage = (eventName, callback) => {
-            socket.on(eventName, callback);
-        };
+        
 
 
         dispatch({

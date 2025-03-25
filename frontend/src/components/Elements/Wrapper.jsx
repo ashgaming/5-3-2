@@ -14,15 +14,15 @@ const Wrapper = memo(({ children }) => {
         
         const timer = setTimeout(() => {
             
-            if (pathname !== '/users/login' && pathname !== '/users/register') {
+            if (pathname !== '/login' && pathname !== '/register') {
                 if (!user?.user?._id) {
-                    navigate('/users/login');
+                    navigate('/login');
                     return;
                 }
             }
 
 
-            if (pathname === '/users/login' ||  pathname === '/users/register') {
+            if (pathname === '/login' ||  pathname === '/register') {
                 if (user?.user?._id) {
                     navigate('/');
                     return;
@@ -31,7 +31,7 @@ const Wrapper = memo(({ children }) => {
         }, 2000);
 
         return () => clearTimeout(timer);
-    }, [user, location, navigate]);
+    }, [user?.user?._id, location, navigate]);
 
     return (
         <>

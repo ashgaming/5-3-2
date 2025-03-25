@@ -7,6 +7,12 @@ import {
     SET_ORDER_RESET,
     SET_GAME_ORDER,
     SET_PLAY_TURN,
+
+    READY_TO_CONTINUE_REQUEST,
+    READY_TO_CONTINUE_SUCCESS,
+    READY_TO_CONTINUE_ERROR,
+    READY_TO_CONTINUE_RESET,
+    SET_CONTINUE_PLANEL_DATA,
 } from "../constants/game.constants";
 
 export const startGameReducer = (state = {
@@ -182,6 +188,7 @@ export const playCardReducer = (state = {
 export const RoomDetailsReducer = (state = {
     roomId: undefined,
     gameId: undefined,
+    panelData:null,
     players: [],
     game: undefined,
     order: 'unset'
@@ -190,19 +197,43 @@ export const RoomDetailsReducer = (state = {
         case SET_ROOM_ID:
             return { ...state, roomId: action.payload, };
         case MODIFY_PLAYERS_IN_ROOM:
-            return { ...state, players: action.payload, };
+            return { ...state, players:  action.payload };
         case SET_GAME_ID:
-            return { ...state, gameId: action.payload, };
+
+            return { ...state, gameId: action.payload ?? state.gameId, };
         case SET_GAME_ORDER:
             let updatedgame = state.game;
             updatedgame.order = action.payload
             console.log(updatedgame)
-            return { ...state, order: action.payload, game: [updatedgame] };
+            return { ...state, order: action.payload, game: updatedgame };
         case CURRENT_GAME_DATA:
             return { ...state, game: action.payload }
 
-        case SET_PLAY_TURN :
-            return { ...state , playTurn : action.payload }
+        case SET_PLAY_TURN:
+            return { ...state, playTurn: action.payload }
+
+        case SET_CONTINUE_PLANEL_DATA:
+            return { ...state, panelData: action.payload }
+        default:
+            return state;
+    }
+};
+
+export const ReadyToContinueReducer = (state = {
+    isReady: undefined,
+    loading: false,
+    error: false,
+    success: false,
+}, action) => {
+    switch (action.type) {
+        case READY_TO_CONTINUE_REQUEST:
+            return { loading: true, success: false, error: false };
+        case READY_TO_CONTINUE_SUCCESS:
+            return { ...state, loading: false, isReady: undefined, success: true, error: false };
+        case READY_TO_CONTINUE_ERROR:
+            return { ...state, loading: false, success: false, error: action.payload };
+        case READY_TO_CONTINUE_RESET:
+            return { isReady: undefined, loading: false, error: false, success: false, };
         default:
             return state;
     }

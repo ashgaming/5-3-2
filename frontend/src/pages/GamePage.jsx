@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
-import { getGameData } from "../redux/actions/game.action";
+import { AppDispatch, getGameData } from "../redux/actions/game.action";
 import SelectOrderPop from "../components/GamePops/SelectOrderPop";
-import { SET_GAME_ORDER, SET_PLAY_TURN } from "../redux/constants/game.constants";
+import { SET_CONTINUE_PLANEL_DATA, SET_GAME_ORDER, SET_PLAY_TURN } from "../redux/constants/game.constants";
 import { receiveMessage, sendMessage, socket } from "../redux/actions/socket.action";
 import ConfirmPlayMyCardPop from "../components/GamePops/ConfirmPlayMyCardPop";
 import WaitingForWinner from "../components/GamePops/WaitingForWinner";
@@ -31,6 +31,7 @@ const GamePage = () => {
   const { user } = useSelector((state) => state.UserData);
 
   useEffect(() => {
+    console.log('game id in useeffect of  '  ,gameId)
     if (gameId) dispatch(getGameData(gameId));
   }, [gameId]);
 
@@ -72,14 +73,25 @@ const GamePage = () => {
       });
     });
 
+    receiveMessage(`new-round-set-${gameId}`, (data) => {
+      AppDispatch({
+        type : SET_CONTINUE_PLANEL_DATA ,
+        payload : data
+      })
+    });
+
+    
+
     return () => {
       socket.off("order-set");
       socket.off("setCardInPlay");
     };
   }, []);
 
+  console.log('game',game)
   useEffect(() => {
-    if (cardsInPlay.length > 2) {
+    console.log(game?.game?.players?.length , 'game?.game?.players?.length ')
+    if (cardsInPlay.length > game?.game?.players?.length - 1) {
       setIsWaitingForWinner(true);
       sendMessage("FindTheWinnerOfPlay", { gameId: gameId });
 
@@ -94,6 +106,8 @@ const GamePage = () => {
       }, 100);
     }
   }, [cardsInPlay.length]);
+
+  console.log('gameId',gameId)
 
   return (
     <main className="relative flex flex-col items-center justify-center h-screen w-screen text-white bg-gradient-to-br from-gray-900 via-indigo-900 to-black overflow-hidden">
@@ -120,8 +134,8 @@ const GamePage = () => {
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
           Card Game
         </h1>
-        <p className="text-blue-300">Table: {game?.game?._id}</p>
-        <p className="text-blue-300">Round: 3</p>
+        <p className="text-blue-300">Table: {game?.game?._id ?? gameId ?? null }</p>
+        <p className="text-blue-300">Round: 3</p> 
       </div>
 
       {/* Sidebar */}

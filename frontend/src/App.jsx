@@ -5,6 +5,7 @@ import GamePage from './pages/GamePage';
 import MenuPage from './pages/MenuPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import Wrapper from './components/Elements/Wrapper';
 
 function App() {
 
@@ -12,15 +13,19 @@ function App() {
     <main className='overflow-hidden'>
       <Router>
         <Routes>
-          <Route path="/game" element={<GamePage />} />
-          <Route path="/login" element={ <LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/game" element={
+            <Wrapper>
+              <GamePage />
+            </Wrapper>
+          } />
+          <Route path="/login" element={<Wrapper> <LoginPage /> </Wrapper>} />
+          <Route path="/register" element={<Wrapper> <RegisterPage /></Wrapper>} />
           <Route path='/' element={<Home />} />
+          <Route path='/menu' element={<Wrapper> <MenuPage /></Wrapper>} />
           {/* <Route path='*' element={<NotFound />} /> */}
-          <Route path='/menu' element={<MenuPage />} />
         </Routes>
       </Router>
-    
+
     </main>
   )
 }

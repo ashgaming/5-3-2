@@ -14,17 +14,15 @@ const redisClient = redis.createClient({
 });
 
 console.log('connecting to the redis\n');
-console.log(process.env.REDIS_URL);
 
 redisClient.on('connect', () => console.log('Connected to Redis'));
-redisClient.on('error', (err) => console.log('Redis connection error:', err));
 redisClient.on('ready', () => console.log('Redis client ready'));
 redisClient.on('end', () => console.log('Redis connection closed'));
-redisClient.on('reconnecting', () => console.log('Redis client reconnecting'));
+//redisClient.on('reconnecting', () => console.log('Redis client reconnecting'));
 
 (async () => {
     try {
-        await redisClient.connect();
+       // await redisClient.connect();
     } catch (err) {
         console.error('Failed to connect to Redis:', err);
     }

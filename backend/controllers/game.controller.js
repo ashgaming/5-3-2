@@ -12,7 +12,9 @@ module.exports.CreateRoom = async (req, res, next) => {
             return res.status(400).json({ errors: error.array() })
         }
 
-        const { _id:userId , socketId } = req.user;
+        const { _id:userId } = req.user;
+
+        const { socketId } = req.body;
 
         const room = await gameServices.CreateRoom({userId , socketId})
 
@@ -32,7 +34,8 @@ module.exports.JoinRoom = async (req, res, next) => {
         }
 
         const { roomId } = req.body;
-        const { _id:userId , socketId } = req.user;
+        const { _id:userId} = req.user;
+        const { socketId } = req.body;
 
         const room = await gameServices.JoinRoom(roomId, userId , socketId)
 
@@ -96,7 +99,7 @@ module.exports.EnterGame = async (req, res, next) => {
 
         const { gameId } = req.body;
 
-        const game = await gameServices.EnterGame({gameId , userId })
+        const game = await gameServices.EnterGame({ gameId , userId })
 
         res.status(201).json({ game })
     }
@@ -117,7 +120,7 @@ module.exports.SetOrder = async (req, res, next) => {
 
         const { order:newOrder , gameId } = req.body;
 
-        const order = await gameServices.SetOrder({gameId , order:newOrder })
+        const order = await gameServices.SetOrder({gameId , order:newOrder , userId })
 
         res.status(201).json({ order })
     }
@@ -168,6 +171,28 @@ module.exports.playCard = async (req, res, next) => {
     }
 }
 
+
+module.exports.ReadyToPlayNextRound = async (req, res, next) => {
+    try {
+        const error = validationResult(req)
+        if (!error.isEmpty()) {
+            return res.status(400).json({ errors: error.array() })
+        }
+
+        const { gameId , card } = req.body;
+        const { _id:userId } = req.user;
+
+        const game = await gameServices.ReadyToPlayNextRound({ gameId , user : userId })
+
+        res.status(201).json({ game })
+
+    }
+    catch (error) {
+        console.log(error)
+        return res.status(500).json({ errors: "Internal server error" , msg : error });
+    }
+}
+
 module.exports.test = async (req, res, next) => {
     try {
         const error = validationResult(req)
@@ -188,3 +213,4 @@ module.exports.test = async (req, res, next) => {
         return res.status(500).json({ errors: "Internal server error" , msg : error });
     }
 }
+

@@ -1,46 +1,51 @@
 const express = require('express')
 const router = express.Router();
-const { body , query } = require("express-validator")
+const { body, query } = require("express-validator")
 const gameController = require('../controllers/game.controller')
 const authMiddleware = require('../middlewares/auth.middleware')
 
 
-router.post('/room/create', authMiddleware.authUser ,gameController.CreateRoom)
+router.post('/room/create',
+    body('socketId').isString().withMessage('Invalid socketId')
+    , authMiddleware.authUser, gameController.CreateRoom)
 
-router.post('/room/join',[
+router.post('/room/join', [
     body('roomId').isMongoId().withMessage('Invalid roomId'),
-],authMiddleware.authUser , gameController.JoinRoom)
+    body('socketId').isString().withMessage('Invalid socketId')
+], authMiddleware.authUser, gameController.JoinRoom)
 
-router.post('/room/leave',[
+router.post('/room/leave', [
     body('roomId').isMongoId().withMessage('Invalid roomId'),
-],authMiddleware.authUser , gameController.LeaveRoom)
+], authMiddleware.authUser, gameController.LeaveRoom)
 
-router.post('/start',[
+router.post('/start', [
     body('roomId').isMongoId().withMessage('Invalid roomId'),
-],authMiddleware.authUser,gameController.StartGame)
+], authMiddleware.authUser, gameController.StartGame)
 
-router.post('/enter',[
-    body('gameId').isMongoId().withMessage('Invalid roomId'),
-],authMiddleware.authUser,gameController.EnterGame)
+router.post('/enter', [
+    body('gameId').isMongoId().withMessage('Invalid gameId'),
+], authMiddleware.authUser, gameController.EnterGame)
 
-
-
-router.post('/set/order',[
+router.post('/set/order', [
     body('gameId').isMongoId().withMessage('Invalid roomId'),
     body('order').isString().withMessage('Invalid order'),
-], authMiddleware.authUser ,gameController.SetOrder)
+], authMiddleware.authUser, gameController.SetOrder)
 
-router.post('/player/join',[
+router.post('/player/join', [
     body('roomId').isMongoId().withMessage('Invalid roomId'),
 ], gameController.SendPlayerJoinNotification)
 
-router.post('/play-card',[
+router.post('/play-card', [
     body('gameId').isMongoId().withMessage('Invalid gameId'),
     body('card').isString().withMessage('Invalid card number'),
-],authMiddleware.authUser ,gameController.playCard)
+], authMiddleware.authUser, gameController.playCard)
 
-router.post('/test',[
+router.post('/test', [
     body('roomId').isMongoId().withMessage('Invalid gameId')
-],authMiddleware.authUser ,gameController.test)
+], authMiddleware.authUser, gameController.test)
+
+router.post('/readytoplay', [
+    body('gameId').isMongoId().withMessage('Invalid gameId'),
+], authMiddleware.authUser, gameController.ReadyToPlayNextRound)
 
 module.exports = router;

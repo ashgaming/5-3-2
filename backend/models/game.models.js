@@ -124,7 +124,7 @@ const GameSchema = new mongoose.Schema({
   roomId: {
     type: String,
     required: true,
-    unique: true, // Ensure roomId is unique
+   // unique: true, // Ensure roomId is unique
   },
   round:{
     type:Number,

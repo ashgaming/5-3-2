@@ -41,9 +41,6 @@ const roomSchema = new mongoose.Schema({
         type: Array,
         default:[playerSchema],
         nullable: true,
-    },
-    socketId: {
-        type: String,
     }
 })
 

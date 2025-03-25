@@ -1,7 +1,8 @@
 import { combineReducers } from 'redux';
 import { userDataReducer, userLoginReducer, userRegisterReducer } from './reducers/user.reducer';
 import { SocketReducer } from './reducers/socket.reducer';
-import { createRoomReducer, joinRoomReducer, playCardReducer, RoomDetailsReducer, startGameReducer  } from './reducers/game.reducer';
+import { createRoomReducer, joinRoomReducer, playCardReducer, ReadyToContinueReducer, RoomDetailsReducer, startGameReducer  } from './reducers/game.reducer';
+import { PeerReducer } from './reducers/peer.reducer';
 
 const rootReducer = combineReducers({
     UserLogin: userLoginReducer,
@@ -9,13 +10,15 @@ const rootReducer = combineReducers({
     UserData: userDataReducer,
 
     SocketReducer:SocketReducer,
+    PeerReducer:PeerReducer,
 
     StartGame:startGameReducer,
     CreateRoom : createRoomReducer,
     JoinRoom : joinRoomReducer,
     RoomDetails: RoomDetailsReducer,
 
-    PlayCard:playCardReducer
+    PlayCard:playCardReducer,
+    ReadyToContinue:ReadyToContinueReducer,
 
 
 });

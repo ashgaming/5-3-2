@@ -1,18 +1,19 @@
 const gameModel = require('../models/game.models')
 const roomModel = require('../models/room.models')
 const gamedataModel = require('../models/gamedata.model')
-const { sendMessageToSocketId } = require('../socket')
+const { sendMessageToSocketId, sendMessageToRoomId } = require('../socket')
 const redis = require('../redisClient')
 const { Cards } = require('./cards.services')
 
 
 module.exports.CreateRoom = async (
-  { userId, socketId }
+  { userId, socketId, password }
 ) => {
   try {
     const room = await roomModel.create({
       status: 'waiting',
       players: 1,
+      password: password ?? null,
       playerList: [
         { userId, socketId, isReady: false }
       ]
@@ -22,7 +23,7 @@ module.exports.CreateRoom = async (
 
     return room
   } catch (error) {
-    return null
+    throw new error(error)
   }
 }
 
@@ -129,7 +130,7 @@ module.exports.LeaveRoom = async (roomId, userId, socketId) => {
     if (!room) {
       return null;
     }
-    await redis.set(`room-${room._id}`, JSON.stringify(room), 20000)
+    // await redis.set(`room-${room._id}`, JSON.stringify(room), 20000)
 
     if (room.playerList.length === 0) {
       await roomModel.deleteOne({ _id: roomId });
@@ -213,7 +214,7 @@ module.exports.StartGame = async ({ userId, roomId }) => {
       throw new Error("Room not found or user not in room");
     }
 
-    await redis.set(`room-${room._id}`, JSON.stringify(room), 20000)
+    // await redis.set(`room-${room._id}`, JSON.stringify(room), 20000)
 
     // Step 2: Check if all players are ready
     const allReady = room.playerList.length === 3 ? room.playerList.every(player => player.isReady) : false;
@@ -251,7 +252,7 @@ module.exports.StartGame = async ({ userId, roomId }) => {
       });
     }
 
-    redis.set(`game-${game._id}`, JSON.stringify(game), 50000)
+    // redis.set(`game-${game._id}`, JSON.stringify(game), 50000)
 
     return { room, game, status: "started" };
 
@@ -260,6 +261,28 @@ module.exports.StartGame = async ({ userId, roomId }) => {
     return { room: null, game: null, status: "error", error: error.message };
   }
 };
+
+module.exports.CreateGame = async ({ roomId, playerList }) => {
+  // Step 3: Deal cards
+  const cardsArray = Cards(); // Assuming Cards() returns an array of cards
+  const dealtCards = dealCardsToPlayers(cardsArray, playerList.length, cardsArray.length / playerList.length);
+
+  // Step 4: Create game document
+  const game = await gameModel.create({
+    roomId: String(roomId),
+    master: playerList[0].userId,
+    turnToPlay: playerList[0].userId,
+    currentGameNumber: 1,
+    totalGameNumber: 10,
+    order: "unset",
+    cardsInPlay: [],
+    players: createGamePlayers(playerList, dealtCards)
+  });
+
+  // redis.set(`game-${game._id}`, JSON.stringify(game), 50000)
+
+  return { game, status: "started" };
+}
 
 module.exports.EnterGame = async ({ gameId, userId }) => {
   try {
@@ -292,7 +315,7 @@ module.exports.EnterGame = async ({ gameId, userId }) => {
   }
 };
 
-module.exports.SetOrder = async ({ gameId, order }) => {
+module.exports.SetOrder = async ({ gameId, order, userId }) => {
   try {
     const game = await gameModel.findOneAndUpdate(
       { _id: gameId },
@@ -307,31 +330,22 @@ module.exports.SetOrder = async ({ gameId, order }) => {
       return null;
     }
 
-    await redis.set(`game-${game._id}`, JSON.stringify(game), 20000);
+    //   await redis.set(`game-${game._id}`, JSON.stringify(game), 20000);
 
-    const room = await getRoomData(game.roomId);
+    sendMessageToRoomId(game.roomId,
+      {
+        event: 'order-set',
+        data: game.order
+      }
+    )
 
-    console.log('room', room)
+    sendMessageToRoomId(game.roomId,
+      {
+        event: 'getIsMyTern',
+        data: { master: userId }
+      }
+    )
 
-    if (room.playerList && room.playerList.length > 0) {
-      room.playerList.forEach((player) => {
-        if (player.userId) {
-
-          sendMessageToSocketId(player.socketId,
-            {
-              event: 'order-set',
-              data: game.order
-            })
-
-          sendMessageToSocketId(player.socketId,
-            {
-              event: 'getIsMyTern',
-              data: game.turnToPlay
-            })
-
-        }
-      });
-    }
 
     return game.order;
   } catch (error) {
@@ -401,7 +415,7 @@ const InsertInHistory = async ({ cardsInPlay, gameId, round, gameNumber = 0, win
       winner,
     });
 
-    await redis.set(`gamedataModel-${insertInGameHistory._id}`, JSON.stringify(insertInGameHistory))
+    // await redis.set(`gamedataModel-${insertInGameHistory._id}`, JSON.stringify(insertInGameHistory))
 
     return insertInGameHistory;
   } catch (error) { // Changed 'err' to 'error' for clarity
@@ -410,29 +424,34 @@ const InsertInHistory = async ({ cardsInPlay, gameId, round, gameNumber = 0, win
   }
 };
 
-// Validation helper
-const validateInputs = ({ gameId, userId, card }) => {
-  if (!gameId || !userId || !card) {
-    throw new Error('Missing required parameters: gameId, userId, or card');
-  }
-};
 
 // Fetch game state
 const getGameState = async ({ gameId }) => {
-  const game = JSON.parse(await redis.get(`game-${gameId}`)) ?? await gameModel.findOne({ _id: gameId }).lean();
+  let game ; //= JSON.parse(await redis.get(`game-${gameId}`)) ?? await gameModel.findOne({ _id: gameId }).lean();
+
+  try {
+    game = JSON.parse(await redis.get(`game-${gameId}`))
+  } catch (error) {
+    console.log('hit db to load game data')
+    game = await gameModel.findOne({ _id: gameId }).lean();
+  }
+
 
   if (!game) {
     throw new Error(`Game not found for gameId: ${gameId}`);
   }
-
-  await redis.set(`game-${gameId}`, JSON.stringify(game), 20000)
+  // await redis.set(`game-${gameId}`, JSON.stringify(game), 20000)
+ // redis.set(`game-${gameId}`, JSON.stringify(game), 'PX', 20000);
   return game;
 };
 
 // Validate player list
 const validatePlayerList = (playerList) => {
-  if (!playerList || playerList.length !== 3) {
-    throw new Error('Player list invalid or not exactly 3 players');
+  if (!Array.isArray(playerList)) {
+    throw new Error('Player list must be an array');
+  }
+  if (playerList.length < 2 || playerList.length > 3) {
+    throw new Error(`Player list must contain 2 or 3 players, got ${playerList.length}`);
   }
   return playerList;
 };
@@ -441,7 +460,7 @@ const validatePlayerList = (playerList) => {
 const getNextPlayer = (array, targetUserId) => {
   const currentIndex = array.findIndex(obj => obj.userId.toString() === String(targetUserId));
   if (currentIndex === -1) throw new Error(`userId ${targetUserId} not found`);
-  return array[(currentIndex + 1) % 3];
+  return array[(currentIndex + 1) % array.length];
 };
 
 // Update game with played card
@@ -470,7 +489,7 @@ const updateGameState = async (gameId, userId, card, Master) => {
     throw new Error(`Game not found for gameId: ${gameId}`);
   }
 
-  await redis.set(`game-${game._id}`, JSON.stringify(game), 20000)
+  // await redis.set(`game-${game._id}`, JSON.stringify(game), 20000)
   return game;
 };
 
@@ -484,36 +503,7 @@ const validateCard = (card) => {
   return playedCard;
 };
 
-// Get room data
-const getRoomData = async (roomId) => {
-  let room;
-  const redisRoom = JSON.parse(await redis.get(`room-${roomId}`));
-
-  if (redisRoom) {
-    room = redisRoom;
-  } else {
-    room = await roomModel.findOne({ id: roomId }).lean();
-    if (room) {  // Add null check to prevent storing undefined
-      await redis.set(`room-${roomId}`, JSON.stringify(room), 'EX', 20000);
-    }
-  }
-  return room;
-};
-
-// Broadcast helper
-const broadcastToPlayers = (room, event, data) => {
-  room.playerList.forEach(({ userId: playerId, socketId }) => {
-    if (playerId && socketId) {
-      try {
-        sendMessageToSocketId(socketId, { event, data });
-      } catch (socketError) {
-        console.error(`Failed to send ${event} to socket ${socketId}:`, socketError);
-      }
-    }
-  });
-};
-
-const handleRoundCompletion = async (gameId, game, broadcastFn) => {
+const handleRoundCompletion = async (gameId, game, roomId) => {
 
   const winner = await FigureOutRoundWinner({
     cardInPlay: game.cardsInPlay,
@@ -523,19 +513,28 @@ const handleRoundCompletion = async (gameId, game, broadcastFn) => {
 
 
   setTimeout(() => {
-    broadcastFn('WinnerOfPlay', winner);
+    sendMessageToRoomId(roomId, {
+      event: 'WinnerOfPlay',
+      data: winner
+    });
+
   }, 5000);
+
+  sendMessageToRoomId(roomId, {
+    event: 'getIsMyTern',
+    data: { master: winner.winnerPlayer }
+  });
+
 
 
   const gameUp = await gameModel.findOneAndUpdate(
     { _id: gameId },
     {
       $set: {
-        round: this.round === 10 ? 1 : this.round + 1,
-        currentGameNumber : this.round === 10 ? +1 : 1,
+        round: game.currentGameNumber === 10 ? 1 : +1,
+        currentGameNumber: game.currentGameNumber === 10 ? 1 : (game.currentGameNumber + 1),
         cardsInPlay: [],
-        // Reset all players' scores to 0 when round is 10
-        ...(this.round === 10 && { "players.currentGameScore": 0 }),
+        ...(game.round === 10 && { "players.currentGameScore": 0 }),
         // Then set winner's score to 1
         "players.$[elem].currentGameScore": 1
       }
@@ -547,10 +546,14 @@ const handleRoundCompletion = async (gameId, game, broadcastFn) => {
     }
   );
 
-  broadcastFn('getIsMyTern', { master: winner.winnerPlayer });
 
-  await redis.set(`game-${gameId}`, JSON.stringify(gameUp), 20000)
+  setTimeout(() => {
+    if (gameUp.currentGameNumber === 10) {
+      CreateNextRoundSetup(gameId)
+    }
+  }, 5000)
 
+  // await redis.set(`game-${gameId}`, JSON.stringify(gameUp), 20000)
   return winner;
 };
 
@@ -633,7 +636,7 @@ const updataGamePlayers = (playerList, dealtCards, round) => {
   }));
 };
 
-const StartNewGame = async ({ room, gameId, game, winner, round }) => {
+const StartNewGame = async ({ room, gameId, round }) => {
   try {
     const update = {
       master: userId,
@@ -659,46 +662,7 @@ const StartNewGame = async ({ room, gameId, game, winner, round }) => {
   }
 }
 
-module.exports.PlayMyCards = async ({ gameId, userId, card }) => {
-  try {
 
-    console.log('---------------------------------------------------------------------------------')
-    console.log("played : \t", userId, '\t', card)
-    console.log('---------------------------------------------------------------------------------')
-
-    validateInputs({ gameId, userId, card });
-
-    const currentGame = await getGameState({ gameId });
-    const playerList = validatePlayerList(currentGame.players);
-
-    const Master = currentGame.cardsInPlay.length !== 3
-      ? getNextPlayer(playerList, userId)
-      : undefined;
-
-    const game = await updateGameState(gameId, userId, card, Master);
-    const playedCard = validateCard(card);
-    let roomId = currentGame.roomId
-    const room = await getRoomData(roomId);
-
-    const broadcast = (event, data) => broadcastToPlayers(room, event, data);
-
-    broadcast('cardsInPlay', { cardsInPlay: game.cardsInPlay, _card: playedCard });
-
-    if (game.cardsInPlay.length >= 3) {
-      return await handleRoundCompletion(gameId, game, broadcast);
-    } else {
-      broadcast('getIsMyTern', { master: Master.userId });
-    }
-
-    return card;
-
-  } catch (error) {
-    console.error('Error in PlayMyCards:', error.message);
-    return null;
-  }
-};
-
-module.exports.FigureOutRoundWinner = FigureOutRoundWinner;
 
 
 const clearRedis = async () => {
@@ -713,4 +677,111 @@ const clearRedis = async () => {
   }
 };
 
+const CreateNextRoundSetup = async ({ gameId }) => {
+  try {
+    const game = await getGameState(gameId);
+    if (!game || !game.room) {
+      throw new Error("Game or room not found");
+    }
+
+    const room = game.room;
+    const obj = {
+      gameId,
+      round: game.round + 1,
+      players: room.playerList.map((player) => ({
+        userId: player.userId,
+        isReady: false,
+        target: player.target,
+        score: player.currentGameScore
+      })),
+    };
+
+    // broadcastToPlayers(room, `new-round-set-${gameId}`, obj)
+
+    await redis.set(`new-round-set-${gameId}`, JSON.stringify(obj));
+    return obj; // Optional: return for confirmation/logging
+  } catch (error) {
+    throw new Error(error.message || "Failed to create next round setup");
+  }
+};
+
+module.exports.ReadyToPlayNextRound = async ({ gameId, user }) => {
+  try {
+    const rawObj = await redis.get(`new-round-set-${gameId}`);
+    let obj = rawObj ? JSON.parse(rawObj) : null;
+
+    if (!obj) {
+      throw new Error("No round setup found for this game");
+    }
+
+    obj = {
+      gameId: obj.gameId,
+      round: obj.round,
+      players: obj.players.map((player) => ({
+        userId: player.userId,
+        isReady: player.userId === user ? true : player.isReady,
+      })),
+    };
+
+    await redis.set(`new-round-set-${gameId}`, JSON.stringify(obj));
+    return obj; // Optional: return for confirmation/logging
+  } catch (error) {
+    throw new Error(error.message || "Failed to set ready status");
+  }
+};
+
+
+module.exports.PlayMyCards = async ({ gameId, userId, card }) => {
+  try {
+
+    console.log('---------------------------------------------------------------------------------')
+    console.log("played : \t", userId, '\t', card)
+    console.log('---------------------------------------------------------------------------------')
+
+    if (!gameId || !userId || !card) {
+      throw new Error('Missing required parameters: gameId, userId, or card');
+    }
+
+    const currentGame = await getGameState({ gameId });
+    const playerList = validatePlayerList(currentGame.players);
+    const roomId = currentGame.roomId;
+
+    console.log('currentGame.cardsInPlay.length !== playerList.length')
+    console.log(currentGame.cardsInPlay.length !== playerList.length)
+    console.log(currentGame.cardsInPlay.length )
+    console.log(playerList.length )
+
+    const Master = currentGame.cardsInPlay.length !== (playerList.length-1)
+      ? getNextPlayer(playerList, userId)
+      : undefined;
+
+    const game = await updateGameState(gameId, userId, card, Master);
+    const playedCard = validateCard(card);
+    sendMessageToRoomId(roomId, {
+      event: 'cardsInPlay',
+      data: { cardsInPlay: game.cardsInPlay, _card: playedCard }
+    });
+
+
+    if (game.cardsInPlay.length >= playerList.length) {
+      console.log('hit 720')
+      return await handleRoundCompletion(gameId, game, roomId);
+    } else {
+      sendMessageToRoomId(roomId, {
+        event: 'getIsMyTern',
+        data: { master: Master.userId }
+      });
+
+    }
+
+    return card;
+
+  } catch (error) {
+    console.error('Error in PlayMyCards:', error.message);
+    throw new Error(error)
+  }
+};
+
 module.exports.test = clearRedis;
+module.exports.FigureOutRoundWinner = FigureOutRoundWinner;
+module.exports.CreateNextRoundSetup = CreateNextRoundSetup;
